@@ -1,9 +1,10 @@
 import RPi.GPIO as GPIO
+from multiprocessing import Queue
 
 
 class Swi:
 
-    def __init__(self, name, pin, eventqueue=None):
+    def __init__(self, name, pin, eventqueue: Queue = None):
 
         self._name = name
         self._pin = pin

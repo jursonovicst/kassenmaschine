@@ -29,11 +29,11 @@ class BaseDisplay:
     def rfr(self):
         pass
 
-    def prt(self, string, row):
-        assert 0 <= row < self._nrow, "Wrong row index: '" + row + "'!"
+    def prt(self, string: str, row: int):
+        assert 0 <= row < self._nrow, f"Wrong row index: '{row}'!"
 
         # update buffer
-        self._rows[row] = string
+        self._rows[row] = string[:20] if len(string) > 20 else f"{string:20s}"
 
     def cls(self):
         for i in range(self._nrow):

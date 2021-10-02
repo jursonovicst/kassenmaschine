@@ -1,11 +1,11 @@
 from threading import Lock
 import RPi.GPIO as GPIO
-import Queue
+from multiprocessing import Queue
 
 
 class REnc:
 
-    def __init__(self, name, pin_a, pin_b, eventqueue):
+    def __init__(self, name, pin_a, pin_b, eventqueue: Queue):
 
         self._name = name
         self._pin_a = pin_a

@@ -1,4 +1,4 @@
-from basedisplay import BaseDisplay
+from display import BaseDisplay
 from .RPi_I2C_driver import lcd
 from threading import Lock
 

@@ -1,9 +1,11 @@
+import logging
+import time
+
 import numpy as np
 import pandas as pd
 from multiprocessing import Queue
-from keyboard import Keyboard
 from display import Display
-from input import REnc, Swi
+from input import REnc, Swi, PoS, Keyboard
 
 
 class KassenMaschine:
@@ -26,9 +28,12 @@ class KassenMaschine:
         self._swi_bias = Swi('ZEROBIAS', 22, self._events)
         self._bias = 0
 
+        # init switches
         self._swi_substract = Swi('SUBS', 26)
-
         self._swi_reset = Swi('RESET', 19, self._events)
+
+        # init POS terminal
+        self._pos = PoS('POS', self._events)
 
         # init data structure
         dtypes = np.dtype([
@@ -57,7 +62,7 @@ class KassenMaschine:
                           3)
 
         # clear empty lines, if any
-        if self._basket.shape[0] <3:
+        if self._basket.shape[0] < 3:
             self._display.cln(2)
 
         if self._basket.shape[0] < 2:
@@ -65,6 +70,18 @@ class KassenMaschine:
 
         if self._basket.shape[0] < 1:
             self._display.cln(0)
+
+    def _pay(self, id: str, payment: float, balance: float):
+        #                   12345678901234567890
+        self._display.prt(f"Credit card {id}", 0)
+        self._display.prt(f" payment: {payment:5.2f}E", 1)
+        self._display.prt(f" balance: {balance:5.2f}E", 2)
+        self._display.prt(f"*** Thank you! ***", 3)
+
+    def _reset(self):
+        self._basket.drop(self._basket.index, inplace=True)
+        self._discount = 0
+        self._bias = 0
 
     def worker(self):
         try:
@@ -77,10 +94,7 @@ class KassenMaschine:
 
                 if event.startswith('ZOE-'):
                     if event == 'ZOE-RESET':
-                        # reset content
-                        self._basket.drop(self._basket.index, inplace=True)
-                        self._discount = 0
-                        self._bias = 0
+                        self._reset()
                     elif event == 'ZOE-0RABATT':
                         self._discount = 0
                     elif event == 'ZOE-10RABATT':
@@ -89,6 +103,7 @@ class KassenMaschine:
                         self._discount = 0.2
                     elif event == 'ZOE-30RABATT':
                         self._discount = 0.3
+                    self._update()
 
                 elif event.startswith('DISC-'):
                     if event == 'DISC-UP':
@@ -97,10 +112,12 @@ class KassenMaschine:
                     elif event == 'DISC-DOWN':
                         if self._discount > 0:
                             self._discount -= 0.01
+                    self._update()
 
                 elif event.startswith('ZERODISC-'):
                     if event == 'ZERODISC-FALL':
                         self._discount = 0
+                    self._update()
 
                 elif event.startswith('BIAS-'):
                     if event == 'BIAS-UP':
@@ -109,21 +126,39 @@ class KassenMaschine:
                     elif event == 'BIAS-DOWN':
                         if self._bias > -100:
                             self._bias -= 0.33333333
+                    self._update()
 
                 elif event.startswith('ZEROBIAS-'):
                     if event == 'ZEROBIAS-FALL':
                         self._bias = 0
+                    self._update()
 
                 elif event.startswith('RESET-'):
                     if event == 'RESET-FALL':
                         # reset content
-                        self._basket.drop(self._basket.index, inplace=True)
-                        self._discount = 0
-                        self._bias = 0
+                        self._reset()
+                    self._update()
+
+                elif event == 'POS':
+                    # customer want's to pay, then pay
+                    try:
+                        balance = float(self._pos.balance)
+                    except ValueError:
+                        raise ValueError(f"Something went wrong, RFID text is not numeric: '{self._pos.balance}'")
+
+                    payment = self._basket['Preis'].sum() * (1 - self._discount) + self._bias
+                    balance -= payment
+                    self._pos.balance = balance
+
+                    # display payment confirmation
+                    self._pay(self._pos.id, payment, balance)
 
                 elif event[-3:].isdigit():
                     self._addproduct(event)
+                    self._update()
 
-                self._update()
         except KeyboardInterrupt:
             self._keyboard.stop()
+
+            # wait for pos
+            self._pos.join(2)
