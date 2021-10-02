@@ -38,7 +38,7 @@ class PoS(Thread):
                 id, text = self._reader.read_no_block()
 
                 # check, if read successful AND first read, or new id, or id after 5 sec
-                if id is not None and (lastid is None or lastid != id or time.time() - lastseen > 5):
+                if id is not None and (lastid is None or lastid != id or time.time() - lastseen > 10):
                     self._id = id
                     self._balance = float(text)
 
