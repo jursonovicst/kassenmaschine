@@ -1,0 +1,16 @@
+[Unit]
+Description=Kassenmaschine
+After=network.target
+
+[Service]
+ExecStart=/opt/kassenmaschine/kassenmaschine.py
+WorkingDirectory=/opt/kassenmaschine
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=KassenMaschine
+User=pi
+Group=pi
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
